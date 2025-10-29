@@ -2,7 +2,7 @@ import torch
 import argparse
 
 from nerf.provider import NeRFDataset
-# from nerf.gui import NeRFGUI # error: version `GLIBC_2.29' not found
+from nerf.gui import NeRFGUI
 from nerf.utils import *
 
 from functools import partial
@@ -18,26 +18,6 @@ if __name__ == '__main__':
     parser.add_argument('--test', action='store_true', help="test mode")
     parser.add_argument('--workspace', type=str, default='workspace')
     parser.add_argument('--seed', type=int, default=0)
-    
-    
-    parser.add_argument('--nn', default='ngp', 
-                        required=['ngp', 'pemlp', 'siren', 'finer', 'wire', 'gauss'], 
-                        help='nerual network')
-    parser.add_argument('--fw0', type=float, default=30, help="fisrt_omega_0")
-    parser.add_argument('--hw0', type=float, default=1, help="hidden_omega_0")
-    parser.add_argument('--fbs', type=float, default=None, help="first_bias_scale")
-    
-    parser.add_argument('--init_method', type=str, default='Pytorch')
-    parser.add_argument('--init_gain', type=float, default=1)
-    
-    parser.add_argument('--downscale', type=int, default=1, help="downsample")
-    parser.add_argument('--trainskip', type=int, default=1, help="trainskip")
-    
-    parser.add_argument('--num_layers', type=int, default=4, help="")
-    parser.add_argument('--hidden_dim', type=int, default=128, help="")
-    parser.add_argument('--geo_feat_dim', type=int, default=128, help="")
-    parser.add_argument('--num_layers_color', type=int, default=4, help="")
-    parser.add_argument('--hidden_dim_color', type=int, default=128, help="")
 
     ### training options
     parser.add_argument('--iters', type=int, default=30000, help="training iters")
@@ -95,68 +75,32 @@ if __name__ == '__main__':
         assert opt.num_rays % (opt.patch_size ** 2) == 0, "patch_size ** 2 should be dividable by num_rays."
 
 
-    if opt.nn == 'ngp':
-        if opt.ff:
-            opt.fp16 = True
-            assert opt.bg_radius <= 0, "background model is not implemented for --ff"
-            from nerf.network_ff import NeRFNetwork
-        elif opt.tcnn:
-            opt.fp16 = True
-            assert opt.bg_radius <= 0, "background model is not implemented for --tcnn"
-            from nerf.network_tcnn import NeRFNetwork
-        else:
-            from nerf.network import NeRFNetwork
-    elif opt.nn == 'pemlp':
-        from nerf.network_pe import NeRFNetwork
-    elif opt.nn == 'siren':
-        from nerf.network_siren import NeRFNetwork
-    elif opt.nn == 'finer':
-        from nerf.network_finer import NeRFNetwork
-    elif opt.nn == 'gauss':
-        from nerf.network_gaussian import NeRFNetwork
+    if opt.ff:
+        opt.fp16 = True
+        assert opt.bg_radius <= 0, "background model is not implemented for --ff"
+        from nerf.network_ff import NeRFNetwork
+    elif opt.tcnn:
+        opt.fp16 = True
+        assert opt.bg_radius <= 0, "background model is not implemented for --tcnn"
+        from nerf.network_tcnn import NeRFNetwork
+    else:
+        from nerf.network import NeRFNetwork
 
     print(opt)
     
     seed_everything(opt.seed)
 
-    if opt.nn == 'finer':
-        model = NeRFNetwork(
-            encoding="None",
-            bound=opt.bound,
-            cuda_ray=opt.cuda_ray,
-            density_scale=1,
-            min_near=opt.min_near,
-            density_thresh=opt.density_thresh,
-            bg_radius=opt.bg_radius,
-                          
-            fbs=opt.fbs,
-            
-            num_layers=opt.num_layers,
-            hidden_dim=opt.hidden_dim,
-            geo_feat_dim=opt.geo_feat_dim,
-            num_layers_color=opt.num_layers_color,
-            hidden_dim_color=opt.hidden_dim_color,
-        )
-    else:
-        model = NeRFNetwork(
-            encoding="hashgrid",
-            bound=opt.bound,
-            cuda_ray=opt.cuda_ray,
-            density_scale=1,
-            min_near=opt.min_near,
-            density_thresh=opt.density_thresh,
-            bg_radius=opt.bg_radius,
-            
-            num_layers=opt.num_layers,
-            hidden_dim=opt.hidden_dim,
-            geo_feat_dim=opt.geo_feat_dim,
-            num_layers_color=opt.num_layers_color,
-            hidden_dim_color=opt.hidden_dim_color,
-        )
+    model = NeRFNetwork(
+        encoding="hashgrid",
+        bound=opt.bound,
+        cuda_ray=opt.cuda_ray,
+        density_scale=1,
+        min_near=opt.min_near,
+        density_thresh=opt.density_thresh,
+        bg_radius=opt.bg_radius,
+    )
     
     print(model)
-    
-    # breakpoint()
 
     criterion = torch.nn.MSELoss(reduction='none')
     #criterion = partial(huber_loss, reduction='none')
@@ -166,56 +110,51 @@ if __name__ == '__main__':
     
     if opt.test:
         
-        # metrics = [PSNRMeter()]
-        metrics = [PSNRMeter(), LPIPSMeter(device=device), SSIMMeter(device=device)]
+        metrics = [PSNRMeter(), LPIPSMeter(device=device)]
         trainer = Trainer('ngp', opt, model, device=device, workspace=opt.workspace, criterion=criterion, fp16=opt.fp16, metrics=metrics, use_checkpoint=opt.ckpt)
 
         if opt.gui:
-            # gui = NeRFGUI(opt, trainer)
-            # gui.render()
-            print('Warning: GUI')
+            gui = NeRFGUI(opt, trainer)
+            gui.render()
         
         else:
-            test_loader = NeRFDataset(opt, device=device, type='test', downscale=opt.downscale).dataloader()
+            test_loader = NeRFDataset(opt, device=device, type='test').dataloader()
 
             if test_loader.has_gt:
                 trainer.evaluate(test_loader) # blender has gt, so evaluate it.
     
-            ## Accelerate
-            # trainer.test(test_loader, write_video=False) # test and save video
-            # trainer.save_mesh(resolution=256, threshold=10)
+            trainer.test(test_loader, write_video=True) # test and save video
+            
+            trainer.save_mesh(resolution=256, threshold=10)
     
     else:
 
         optimizer = lambda model: torch.optim.Adam(model.get_params(opt.lr), betas=(0.9, 0.99), eps=1e-15)
 
-        train_loader = NeRFDataset(opt, device=device, type='train', downscale=opt.downscale, train_skip=opt.trainskip).dataloader()
-        print(f'train_loader: {train_loader}')
+        train_loader = NeRFDataset(opt, device=device, type='train').dataloader()
 
         # decay to 0.1 * init_lr at last iter step
         scheduler = lambda optimizer: optim.lr_scheduler.LambdaLR(optimizer, lambda iter: 0.1 ** min(iter / opt.iters, 1))
 
-        metrics = [PSNRMeter()]
-        # metrics = [PSNRMeter(), LPIPSMeter(device=device)]
-        trainer = Trainer('ngp', opt, model, device=device, workspace=opt.workspace, optimizer=optimizer, criterion=criterion, ema_decay=0.95, fp16=opt.fp16, lr_scheduler=scheduler, scheduler_update_every_step=True, metrics=metrics, use_checkpoint=opt.ckpt, eval_interval=100)
+        metrics = [PSNRMeter(), LPIPSMeter(device=device)]
+        trainer = Trainer('ngp', opt, model, device=device, workspace=opt.workspace, optimizer=optimizer, criterion=criterion, ema_decay=0.95, fp16=opt.fp16, lr_scheduler=scheduler, scheduler_update_every_step=True, metrics=metrics, use_checkpoint=opt.ckpt, eval_interval=50)
 
         if opt.gui:
-            # gui = NeRFGUI(opt, trainer, train_loader)
-            # gui.render()
+            gui = NeRFGUI(opt, trainer, train_loader)
+            gui.render()
         
-            print('Warning: GUI')
         else:
-            valid_loader = NeRFDataset(opt, device=device, type='val', downscale=opt.downscale).dataloader()
+            valid_loader = NeRFDataset(opt, device=device, type='val', downscale=1).dataloader()
 
             max_epoch = np.ceil(opt.iters / len(train_loader)).astype(np.int32)
             trainer.train(train_loader, valid_loader, max_epoch)
 
-            # # also test
-            # test_loader = NeRFDataset(opt, device=device, type='test', downscale=opt.downscale).dataloader()
+            # also test
+            test_loader = NeRFDataset(opt, device=device, type='test').dataloader()
             
-            # if test_loader.has_gt:
-            #     trainer.evaluate(test_loader) # blender has gt, so evaluate it.
+            if test_loader.has_gt:
+                trainer.evaluate(test_loader) # blender has gt, so evaluate it.
             
-            # trainer.test(test_loader, write_video=True) # test and save video
+            trainer.test(test_loader, write_video=True) # test and save video
             
-            # trainer.save_mesh(resolution=256, threshold=10)
+            trainer.save_mesh(resolution=256, threshold=10)
