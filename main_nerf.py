@@ -114,6 +114,8 @@ if __name__ == '__main__':
         from nerf.network_finer import NeRFNetwork
     elif opt.nn == 'gauss':
         from nerf.network_gaussian import NeRFNetwork
+    elif opt.nn == 'hosc':
+        from nerf.network_hosc import NeRFNetwork
 
     print(opt)
     
@@ -137,6 +139,41 @@ if __name__ == '__main__':
             num_layers_color=opt.num_layers_color,
             hidden_dim_color=opt.hidden_dim_color,
         )
+    elif opt.nn == 'siren':
+        model = NeRFNetwork(
+            encoding="None",
+            bound=opt.bound,
+            cuda_ray=opt.cuda_ray,
+            density_scale=1,
+            min_near=opt.min_near,
+            density_thresh=opt.density_thresh,
+            bg_radius=opt.bg_radius,
+                          
+            fbs=opt.fbs,
+            
+            num_layers=opt.num_layers,
+            hidden_dim=opt.hidden_dim,
+            geo_feat_dim=opt.geo_feat_dim,
+            num_layers_color=opt.num_layers_color,
+            hidden_dim_color=opt.hidden_dim_color,
+        )
+    elif opt.nn == 'siren':
+        model = NeRFNetwork(
+            encoding="None",
+            bound=opt.bound,
+            cuda_ray=opt.cuda_ray,
+            density_scale=1,
+            min_near=opt.min_near,
+            density_thresh=opt.density_thresh,
+            bg_radius=opt.bg_radius,      
+            fbs=opt.fbs,
+            num_layers=opt.num_layers,
+            hidden_dim=opt.hidden_dim,
+            geo_feat_dim=opt.geo_feat_dim,
+            num_layers_color=opt.num_layers_color,
+            hidden_dim_color=opt.hidden_dim_color,
+        )
+
     else:
         model = NeRFNetwork(
             encoding="hashgrid",
