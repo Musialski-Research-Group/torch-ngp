@@ -21,11 +21,12 @@ if __name__ == '__main__':
     
     
     parser.add_argument('--nn', default='ngp', 
-                        required=['ngp', 'pemlp', 'siren', 'finer', 'wire', 'gauss'], 
+                        required=['ngp', 'pemlp', 'siren', 'finer', 'wire', 'gauss', 'hosc'], 
                         help='nerual network')
     parser.add_argument('--fw0', type=float, default=30, help="fisrt_omega_0")
     parser.add_argument('--hw0', type=float, default=1, help="hidden_omega_0")
     parser.add_argument('--fbs', type=float, default=None, help="first_bias_scale")
+    parser.add_argument('--beta', type=float, default=5.0, help="beta param (hosc)")
     
     parser.add_argument('--init_method', type=str, default='Pytorch')
     parser.add_argument('--init_gain', type=float, default=1)
@@ -108,12 +109,14 @@ if __name__ == '__main__':
             from nerf.network import NeRFNetwork
     elif opt.nn == 'pemlp':
         from nerf.network_pe import NeRFNetwork
+    elif opt.nn == 'gauss':
+        from nerf.network_gaussian import NeRFNetwork
+    elif opt.nn == 'wire':
+        from nerf.network_gaussian import NeRFNetwork
     elif opt.nn == 'siren':
         from nerf.network_siren import NeRFNetwork
     elif opt.nn == 'finer':
         from nerf.network_finer import NeRFNetwork
-    elif opt.nn == 'gauss':
-        from nerf.network_gaussian import NeRFNetwork
     elif opt.nn == 'hosc':
         from nerf.network_hosc import NeRFNetwork
 
@@ -157,7 +160,7 @@ if __name__ == '__main__':
             num_layers_color=opt.num_layers_color,
             hidden_dim_color=opt.hidden_dim_color,
         )
-    elif opt.nn == 'siren':
+    elif opt.nn == 'hosc':
         model = NeRFNetwork(
             encoding="None",
             bound=opt.bound,
@@ -167,6 +170,60 @@ if __name__ == '__main__':
             density_thresh=opt.density_thresh,
             bg_radius=opt.bg_radius,      
             fbs=opt.fbs,
+            beta=opt.beta,
+            num_layers=opt.num_layers,
+            hidden_dim=opt.hidden_dim,
+            geo_feat_dim=opt.geo_feat_dim,
+            num_layers_color=opt.num_layers_color,
+            hidden_dim_color=opt.hidden_dim_color,
+        )
+    elif opt.nn == 'gauss':
+        model = NeRFNetwork(
+            encoding="None",
+            bound=opt.bound,
+            cuda_ray=opt.cuda_ray,
+            density_scale=1,
+            min_near=opt.min_near,
+            density_thresh=opt.density_thresh,
+            bg_radius=opt.bg_radius,      
+            fbs=opt.fbs,
+            scale=30.0,
+            num_layers=opt.num_layers,
+            hidden_dim=opt.hidden_dim,
+            geo_feat_dim=opt.geo_feat_dim,
+            num_layers_color=opt.num_layers_color,
+            hidden_dim_color=opt.hidden_dim_color,
+        )
+    elif opt.nn == 'wire':
+        model = NeRFNetwork(
+            encoding="None",
+            bound=opt.bound,
+            cuda_ray=opt.cuda_ray,
+            density_scale=1,
+            min_near=opt.min_near,
+            density_thresh=opt.density_thresh,
+            bg_radius=opt.bg_radius,      
+            fbs=opt.fbs,
+            fw0=20,
+            hw0=20,
+            scale=10.0,
+            num_layers=opt.num_layers,
+            hidden_dim=opt.hidden_dim,
+            geo_feat_dim=opt.geo_feat_dim,
+            num_layers_color=opt.num_layers_color,
+            hidden_dim_color=opt.hidden_dim_color,
+        )
+    elif opt.nn == 'pemlp':
+        model = NeRFNetwork(
+            encoding="None",
+            bound=opt.bound,
+            cuda_ray=opt.cuda_ray,
+            density_scale=1,
+            min_near=opt.min_near,
+            density_thresh=opt.density_thresh,
+            bg_radius=opt.bg_radius,      
+            fbs=opt.fbs,
+            N_freqs=10,
             num_layers=opt.num_layers,
             hidden_dim=opt.hidden_dim,
             geo_feat_dim=opt.geo_feat_dim,
