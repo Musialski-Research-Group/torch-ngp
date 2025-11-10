@@ -17,7 +17,7 @@ if __name__ == '__main__':
     parser.add_argument('-O', action='store_true', help="equals --fp16 --cuda_ray --preload")
     parser.add_argument('--test', action='store_true', help="test mode")
     parser.add_argument('--workspace', type=str, default='workspace')
-    parser.add_argument('--seed', type=int, default=0)
+    parser.add_argument('--seed', type=int, default=42)
     
     
     parser.add_argument('--nn', default='ngp', 
@@ -112,7 +112,7 @@ if __name__ == '__main__':
     elif opt.nn == 'gauss':
         from nerf.network_gaussian import NeRFNetwork
     elif opt.nn == 'wire':
-        from nerf.network_gaussian import NeRFNetwork
+        from nerf.network_wire import NeRFNetwork
     elif opt.nn == 'siren':
         from nerf.network_siren import NeRFNetwork
     elif opt.nn == 'finer':
@@ -123,6 +123,7 @@ if __name__ == '__main__':
     print(opt)
     
     seed_everything(opt.seed)
+    print(opt.seed)
 
     if opt.nn == 'finer':
         model = NeRFNetwork(
@@ -230,7 +231,22 @@ if __name__ == '__main__':
             num_layers_color=opt.num_layers_color,
             hidden_dim_color=opt.hidden_dim_color,
         )
-
+    elif opt.nn == 'ngp':
+        model = NeRFNetwork(
+            encoding="frequency",
+            bound=opt.bound,
+            cuda_ray=opt.cuda_ray,
+            density_scale=1,
+            min_near=opt.min_near,
+            density_thresh=opt.density_thresh,
+            bg_radius=opt.bg_radius,
+            
+            num_layers=opt.num_layers,
+            hidden_dim=opt.hidden_dim,
+            geo_feat_dim=opt.geo_feat_dim,
+            num_layers_color=opt.num_layers_color,
+            hidden_dim_color=opt.hidden_dim_color,
+        )
     else:
         model = NeRFNetwork(
             encoding="hashgrid",
@@ -249,6 +265,7 @@ if __name__ == '__main__':
         )
     
     print(model)
+    print(opt.geo_feat_dim)
     
     # breakpoint()
 
@@ -257,6 +274,7 @@ if __name__ == '__main__':
     #criterion = torch.nn.HuberLoss(reduction='none', beta=0.1) # only available after torch 1.10 ?
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    # device = torch.device('cpu:0')
     
     if opt.test:
         
@@ -289,8 +307,12 @@ if __name__ == '__main__':
         # decay to 0.1 * init_lr at last iter step
         scheduler = lambda optimizer: optim.lr_scheduler.LambdaLR(optimizer, lambda iter: 0.1 ** min(iter / opt.iters, 1))
 
-        metrics = [PSNRMeter()]
+        # metrics = [PSNRMeter()]
         # metrics = [PSNRMeter(), LPIPSMeter(device=device)]
+        psnr_met = PSNRMeter()
+        lpips_met = LPIPSMeter(device=device)
+        ssim_met = SSIMMeter(device=device)
+        metrics = [psnr_met, lpips_met, ssim_met]
         trainer = Trainer('ngp', opt, model, device=device, workspace=opt.workspace, optimizer=optimizer, criterion=criterion, ema_decay=0.95, fp16=opt.fp16, lr_scheduler=scheduler, scheduler_update_every_step=True, metrics=metrics, use_checkpoint=opt.ckpt, eval_interval=100)
 
         if opt.gui:
@@ -303,6 +325,23 @@ if __name__ == '__main__':
 
             max_epoch = np.ceil(opt.iters / len(train_loader)).astype(np.int32)
             trainer.train(train_loader, valid_loader, max_epoch)
+
+            best_psnr = 0
+            best_idx = 0
+            with open(os.path.join(opt.workspace, 'results.txt'), 'w+') as file:
+                file.write(f'{opt.seed}\n')
+                file.write(f'PSNR, SSIM, LPIPS\n')
+                for i in range(len(psnr_met.history)):
+                    if psnr_met.history[i] > best_psnr:
+                        best_psnr = psnr_met.history[i]
+                        best_idx = i
+                        file.write(f'iter: {i}, metrics: {psnr_met.history[i], ssim_met.history[i], lpips_met.history[i]} - BEST\n')
+                    else:
+                        file.write(f'iter: {i}, metrics: {psnr_met.history[i], ssim_met.history[i], lpips_met.history[i]}\n')
+                file.write(f'BEST METRICS: {psnr_met.history[best_idx], ssim_met.history[best_idx], lpips_met.history[best_idx]}\n')
+                file.write(f'BEST ITER {best_idx}')
+            # for i in range(len(psnr))
+            # print(f'PSNR: {psnr_met.history[i]}, SSIM: {ssim_met.history[i]}, LPIPS: {lpips_met.history[i]}')
 
             # # also test
             # test_loader = NeRFDataset(opt, device=device, type='test', downscale=opt.downscale).dataloader()

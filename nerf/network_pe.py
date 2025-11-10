@@ -52,7 +52,7 @@ class PEMLP(nn.Module):
 class NeRFNetwork(NeRFRenderer):
     def __init__(
         self,
-        encoding="hashgrid",
+        encoding="None",
         encoding_dir="sphere_harmonics",
         encoding_bg="hashgrid",
         num_layers=4, 
@@ -100,11 +100,11 @@ class NeRFNetwork(NeRFRenderer):
         self.hidden_dim_color = hidden_dim_color
         self.encoder_dir, self.in_dim_dir = get_encoder(encoding='None')
         
-        self.enconding_color = PositionalEncoding(in_channels=self.in_dim_dir + geo_feat_dim, N_freqs=N_freqs)
+        self.enconding_color = PositionalEncoding(in_channels=self.in_dim_dir, N_freqs=N_freqs)
         color_net =  []            
         for l in range(num_layers_color):
             if l == 0:                  # first layer
-                color_net.append(nn.Linear(self.enconding_color.out_channels, hidden_dim_color))
+                color_net.append(nn.Linear(self.enconding_color.out_channels + self.geo_feat_dim - 1, hidden_dim_color))
                 color_net.append(nn.ReLU(True))
             elif l == num_layers_color - 1:   # final layer
                 color_net.append(nn.Linear(hidden_dim_color, 3)) # rgb
@@ -156,10 +156,17 @@ class NeRFNetwork(NeRFRenderer):
         geo_feat = h[..., 1:]
 
         # color
+        # d = self.encoder_dir(d)
+        # d = self.enconding_color(d)
         d = self.encoder_dir(d)
         d = self.enconding_color(d)
 
+        # print(d.shape)
+        # print(geo_feat.shape)
+        # exit(0)
+
         h = torch.cat([d, geo_feat], dim=-1)
+        # h = self.enconding_color(h)
         for l in range(self.num_layers_color):
             h = self.color_net[l](h)
         
@@ -218,8 +225,9 @@ class NeRFNetwork(NeRFRenderer):
             geo_feat = geo_feat[mask]
 
         d = self.encoder_dir(d)
-        d = self.enconding_color(d)
+        # d = self.enconding_color(d)
         h = torch.cat([d, geo_feat], dim=-1)
+        h = self.enconding_color(h)
         for l in range(self.num_layers_color):
             h = self.color_net[l](h)
         

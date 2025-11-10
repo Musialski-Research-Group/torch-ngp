@@ -37,44 +37,6 @@ class SineLayer(nn.Module):
         out = torch.sin(self.omega_0 * self.linear(input))
         return out
 
-class FinerLayer(nn.Module):
-    def __init__(self, in_features, out_features, bias=True, is_first=False, omega_0=30, first_bias_scale=None, is_last=False):
-        super().__init__()
-        self.omega_0 = omega_0
-        self.is_first = is_first
-        self.in_features = in_features
-        self.linear = nn.Linear(in_features, out_features, bias=bias)
-        self.init_weights()
-        
-        self.first_bias_scale = first_bias_scale
-        if is_first and first_bias_scale != None:
-            self.init_first_bias()
-            
-        self.is_last = is_last
-    
-    def init_weights(self):
-        with torch.no_grad():
-            if self.is_first:
-                self.linear.weight.uniform_(-1 / self.in_features, 
-                                             1 / self.in_features)    
-            else:
-                self.linear.weight.uniform_(-np.sqrt(6 / self.in_features) / self.omega_0,
-                                             np.sqrt(6 / self.in_features) / self.omega_0)
-
-    def init_first_bias(self):
-        with torch.no_grad():
-            self.linear.bias.uniform_(-self.first_bias_scale, self.first_bias_scale)
-
-    def forward(self, input):
-        if not self.is_last:
-            x = self.linear(input)
-            with torch.no_grad():
-                scale = torch.abs(x) + 1
-            out = torch.sin(self.omega_0 * scale * x)
-        else:
-            out = self.linear(input)
-        return out
- 
  
 class NeRFNetwork(NeRFRenderer):
     def __init__(self,

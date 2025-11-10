@@ -208,6 +208,8 @@ class PSNRMeter:
         self.V = 0
         self.N = 0
 
+        self.history = []
+
     def clear(self):
         self.V = 0
         self.N = 0
@@ -230,6 +232,8 @@ class PSNRMeter:
         self.V += psnr
         self.N += 1
 
+        self.history.append(self.measure().item()) 
+
     def measure(self):
         return self.V / self.N
 
@@ -246,6 +250,7 @@ class SSIMMeter:
         self.N = 0
 
         self.device = device if device is not None else torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        self.history = []
 
     def clear(self):
         self.V = 0
@@ -267,6 +272,8 @@ class SSIMMeter:
         self.V += ssim
         self.N += 1
 
+        self.history.append(self.measure().item())
+
     def measure(self):
         return self.V / self.N
 
@@ -286,6 +293,8 @@ class LPIPSMeter:
         self.device = device if device is not None else torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.fn = lpips.LPIPS(net=net).eval().to(self.device)
 
+        self.history = []
+
     def clear(self):
         self.V = 0
         self.N = 0
@@ -303,6 +312,8 @@ class LPIPSMeter:
         v = self.fn(truths, preds, normalize=True).item() # normalize=True: [0, 1] to [-1, 1]
         self.V += v
         self.N += 1
+
+        self.history.append(self.measure())
     
     def measure(self):
         return self.V / self.N
@@ -852,16 +863,16 @@ class Trainer(object):
             
             # update grid every 16 steps
             if self.model.cuda_ray and self.global_step % self.opt.update_extra_interval == 0:
-                with torch.cuda.amp.autocast(enabled=self.fp16):
-                    self.model.update_extra_state()
+                # with torch.amp.autocast(enabled=self.fp16, device_type='cuda'):
+                self.model.update_extra_state()
                     
             self.local_step += 1
             self.global_step += 1
 
             self.optimizer.zero_grad()
 
-            with torch.cuda.amp.autocast(enabled=self.fp16):
-                preds, truths, loss = self.train_step(data)
+            # with torch.amp.autocast(enabled=self.fp16, device_type='cuda'):
+            preds, truths, loss = self.train_step(data)
          
             self.scaler.scale(loss).backward()
             self.scaler.step(self.optimizer)

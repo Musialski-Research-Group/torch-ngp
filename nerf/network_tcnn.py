@@ -43,10 +43,11 @@ class NeRFNetwork(NeRFRenderer):
         )
 
         self.sigma_net = tcnn.Network(
+            seed=42,
             n_input_dims=32,
             n_output_dims=1 + self.geo_feat_dim,
             network_config={
-                "otype": "FullyFusedMLP",
+                "otype": "CutlassMLP",
                 "activation": "ReLU",
                 "output_activation": "None",
                 "n_neurons": hidden_dim,
@@ -69,10 +70,11 @@ class NeRFNetwork(NeRFRenderer):
         self.in_dim_color = self.encoder_dir.n_output_dims + self.geo_feat_dim
 
         self.color_net = tcnn.Network(
+            seed=42,
             n_input_dims=self.in_dim_color,
             n_output_dims=3,
             network_config={
-                "otype": "FullyFusedMLP",
+                "otype": "CutlassMLP",
                 "activation": "ReLU",
                 "output_activation": "None",
                 "n_neurons": hidden_dim_color,
