@@ -863,18 +863,19 @@ class Trainer(object):
             
             # update grid every 16 steps
             if self.model.cuda_ray and self.global_step % self.opt.update_extra_interval == 0:
-                # with torch.amp.autocast(enabled=self.fp16, device_type='cuda'):
-                self.model.update_extra_state()
+                with torch.amp.autocast(enabled=self.fp16, device_type='cuda'):
+                    self.model.update_extra_state()
                     
             self.local_step += 1
             self.global_step += 1
 
             self.optimizer.zero_grad()
 
-            # with torch.amp.autocast(enabled=self.fp16, device_type='cuda'):
-            preds, truths, loss = self.train_step(data)
+            with torch.amp.autocast(enabled=self.fp16, device_type='cuda'):
+                preds, truths, loss = self.train_step(data)
          
             self.scaler.scale(loss).backward()
+            # loss.backward()
             self.scaler.step(self.optimizer)
             self.scaler.update()
 

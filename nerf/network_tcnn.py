@@ -33,7 +33,8 @@ class NeRFNetwork(NeRFRenderer):
         self.encoder = tcnn.Encoding(
             n_input_dims=3,
             encoding_config={
-                "otype": "HashGrid",
+                "otype": "Frequency",
+                "n_frequencies": 16,
                 "n_levels": 16,
                 "n_features_per_level": 2,
                 "log2_hashmap_size": 19,
@@ -42,9 +43,10 @@ class NeRFNetwork(NeRFRenderer):
             },
         )
 
+        # n_input_dims=32,
         self.sigma_net = tcnn.Network(
             seed=42,
-            n_input_dims=32,
+            n_input_dims=self.encoder.n_output_dims,
             n_output_dims=1 + self.geo_feat_dim,
             network_config={
                 "otype": "CutlassMLP",
@@ -62,7 +64,8 @@ class NeRFNetwork(NeRFRenderer):
         self.encoder_dir = tcnn.Encoding(
             n_input_dims=3,
             encoding_config={
-                "otype": "SphericalHarmonics",
+                "otype": "Frequency",
+                'n_frequencies': 16,
                 "degree": 4,
             },
         )

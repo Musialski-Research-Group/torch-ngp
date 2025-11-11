@@ -1,7 +1,7 @@
 #!/bin/bash
 
-examples=("drums" "chair" "ficus" "hotdog" "lego" "materials" "mic" "ship")
-# examples=("drums")
+# examples=("drums" "chair" "ficus" "hotdog" "lego" "materials" "mic" "ship")
+examples=("drums")
 
 for example in "${examples[@]}"
 do

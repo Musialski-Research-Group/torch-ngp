@@ -1,6 +1,10 @@
 import torch
 import argparse
 
+# import os
+
+# os.environ['CUDA_LAUNCH_BLOCKING'] = "0"
+# os.environ['TORCH_USE_CUDA_DSA'] = "1"
 from nerf.provider import NeRFDataset
 # from nerf.gui import NeRFGUI # error: version `GLIBC_2.29' not found
 from nerf.utils import *
@@ -204,10 +208,10 @@ if __name__ == '__main__':
             min_near=opt.min_near,
             density_thresh=opt.density_thresh,
             bg_radius=opt.bg_radius,      
-            fbs=opt.fbs,
-            fw0=20,
-            hw0=20,
-            scale=10.0,
+            # fbs=opt.fbs,
+            # fw0=20,
+            # hw0=20,
+            # scale_0=10.0,
             num_layers=opt.num_layers,
             hidden_dim=opt.hidden_dim,
             geo_feat_dim=opt.geo_feat_dim,
@@ -265,6 +269,8 @@ if __name__ == '__main__':
         )
     
     print(model)
+    # model = model.to(torch.float32)
+    # print(f'model dtype: {model.dtype}')
     print(opt.geo_feat_dim)
     
     # breakpoint()
