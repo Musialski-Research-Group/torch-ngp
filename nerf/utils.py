@@ -673,10 +673,13 @@ class Trainer(object):
         self.evaluate_one_epoch(loader, name)
         self.use_tensorboardX = use_tensorboardX
 
-    def test(self, loader, save_path=None, name=None, write_video=True):
+    def test(self, loader, save_dir=None, save_path=None, name=None, write_video=True):
 
         if save_path is None:
-            save_path = os.path.join(self.workspace, 'results')
+            if save_dir is None:
+                save_path = os.path.join(self.workspace, 'results')
+            else:
+                save_path = os.path.join(self.workspace, save_dir)
 
         if name is None:
             name = f'{self.name}_ep{self.epoch:04d}'
@@ -720,8 +723,8 @@ class Trainer(object):
         if write_video:
             all_preds = np.stack(all_preds, axis=0)
             all_preds_depth = np.stack(all_preds_depth, axis=0)
-            imageio.mimwrite(os.path.join(save_path, f'{name}_rgb.mp4'), all_preds, fps=25, quality=8, macro_block_size=1)
-            imageio.mimwrite(os.path.join(save_path, f'{name}_depth.mp4'), all_preds_depth, fps=25, quality=8, macro_block_size=1)
+            imageio.mimwrite(os.path.join(save_path, f'{name}_rgb.mp4'), all_preds)
+            imageio.mimwrite(os.path.join(save_path, f'{name}_depth.mp4'), all_preds_depth)
 
         self.log(f"==> Finished Test.")
     
