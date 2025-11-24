@@ -238,13 +238,13 @@ if __name__ == '__main__':
     elif opt.nn == 'ngp':
         model = NeRFNetwork(
             encoding="frequency",
+            encoding_dir='frequency',
             bound=opt.bound,
             cuda_ray=opt.cuda_ray,
             density_scale=1,
             min_near=opt.min_near,
             density_thresh=opt.density_thresh,
-            bg_radius=opt.bg_radius,
-            
+            bg_radius=opt.bg_radius, 
             num_layers=opt.num_layers,
             hidden_dim=opt.hidden_dim,
             geo_feat_dim=opt.geo_feat_dim,
@@ -285,7 +285,13 @@ if __name__ == '__main__':
     if opt.test:
         
         # metrics = [PSNRMeter()]
-        metrics = [PSNRMeter(), LPIPSMeter(device=device), SSIMMeter(device=device)]
+        best_psnr = 0
+        best_idx = 0
+        psnr_met = PSNRMeter()
+        lpips_met = LPIPSMeter(device=device)
+        ssim_met = SSIMMeter(device=device)
+        metrics = [psnr_met, lpips_met, ssim_met]
+        # metrics = [PSNRMeter(), LPIPSMeter(device=device), SSIMMeter(device=device)]
         trainer = Trainer('ngp', opt, model, device=device, workspace=opt.workspace, criterion=criterion, fp16=opt.fp16, metrics=metrics, use_checkpoint=opt.ckpt)
 
         if opt.gui:
@@ -294,15 +300,37 @@ if __name__ == '__main__':
             print('Warning: GUI')
         
         else:
-            test_loader = NeRFDataset(opt, device=device, type='test', downscale=opt.downscale).dataloader()
+            val_loader = NeRFDataset(opt, device=device, type='val', downscale=opt.downscale).dataloader()
 
-            if test_loader.has_gt:
-                trainer.evaluate(test_loader) # blender has gt, so evaluate it.
-    
+            if val_loader.has_gt:
+                trainer.evaluate(val_loader) # blender has gt, so evaluate it.
+                with open(os.path.join(opt.workspace, 'eval.txt'), 'w+') as file:
+                            file.write(f'{opt.seed}\n')
+                            file.write(f'PSNR, SSIM, LPIPS\n')
+                            for i in range(len(psnr_met.history)):
+                                if psnr_met.history[i] > best_psnr:
+                                    best_psnr = psnr_met.history[i]
+                                    best_idx = i
+                                    file.write(f'iter: {i}, metrics: {psnr_met.history[i], ssim_met.history[i], lpips_met.history[i]} - BEST\n')
+                                else:
+                                    file.write(f'iter: {i}, metrics: {psnr_met.history[i], ssim_met.history[i], lpips_met.history[i]}\n')
+                            file.write(f'BEST METRICS: {psnr_met.history[best_idx], ssim_met.history[best_idx], lpips_met.history[best_idx]}\n')
+                            file.write(f'Mean METRICS: {np.array(psnr_met.history).mean(), np.array(ssim_met.history).mean(), np.array(lpips_met.history).mean()}\n')
+                            file.write(f'BEST ITER {best_idx}')
+
             ## Accelerate
-            # trainer.test(test_loader, write_video=False) # test and save video
+            trainer.test(val_loader, save_dir='high_res', write_video=False) # test and save video
             # trainer.save_mesh(resolution=256, threshold=10)
     
+            test_loader = NeRFDataset(opt, device=device, type='test', downscale=opt.downscale).dataloader()
+            # Accelerate
+            trainer.test(test_loader, save_dir='frames', write_video=False) 
+
+            # test_loader = NeRFDataset(opt, device=device, type='test', downscale=2).dataloader()
+            # ## Accelerate
+            # trainer.test(test_loader, write_video=True)  
+
+
     else:
 
         optimizer = lambda model: torch.optim.Adam(model.get_params(opt.lr), betas=(0.9, 0.99), eps=1e-15)
